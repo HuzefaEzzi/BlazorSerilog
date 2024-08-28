@@ -1,0 +1,26 @@
+﻿@page "/Error"
+@inject IHttpContextAccessor HttpContextAccessor
+
+<PageTitle>Error</PageTitle>
+
+<h1>Error</h1>
+
+<p>Sorry, an error occurred while processing your request.</p>
+
+<p>
+    Correlation ID: <a href="/error/search/@CorrelationId">@CorrelationId</a>
+    <br />
+    Session ID: <a href="/error/search/@SessionId">@SessionId</a>
+</p>
+
+@code {
+    private string CorrelationId { get; set; }
+    private string SessionId { get; set; }
+
+    protected override void OnInitialized()
+    {
+        var query = HttpContextAccessor.HttpContext.Request.Query;
+        CorrelationId = query["correlationId"].FirstOrDefault() ?? "N/A";
+        SessionId = query["sessionId"].FirstOrDefault() ?? "N/A";
+    }
+}

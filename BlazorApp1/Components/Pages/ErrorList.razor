@@ -1,0 +1,92 @@
+@page "/errorlist"
+@inject IWebHostEnvironment WebHostEnvironment
+@using System.IO
+@using System.Text.RegularExpressions
+
+<h3>Error List</h3>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Timestamp</th>
+            <th>Correlation ID</th>
+            <th>Session ID</th>
+            <th>Error Message</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var error in Errors)
+        {
+            <tr>
+                <td>@error.Timestamp</td>
+                <td><a href="/error/search/@error.CorrelationId">@error.CorrelationId</a></td>
+                <td><a href="/error/search/@error.SessionId">@error.SessionId</a></td>
+                <td>@error.ErrorMessage</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private List<ErrorInfo> Errors { get; set; } = new List<ErrorInfo>();
+
+    protected override void OnInitialized()
+    {
+        var logDirectory = Path.Combine(WebHostEnvironment.ContentRootPath, "logs");
+        var logFiles = Directory.GetFiles(logDirectory, "*.txt");
+
+        foreach (var logFile in logFiles)
+        {
+            try
+            {
+                using (var fileStream = new FileStream(logFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                using (var reader = new StreamReader(fileStream))
+                {
+                    string? line;
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        var error = ParseErrorLine(line);
+                        if (error != null)
+                        {
+                            Errors.Add(error);
+                        }
+                    }
+                }
+            }
+            catch (IOException ex)
+            {
+                // Log the error or handle it as appropriate
+                Console.WriteLine($"Error reading log file: {ex.Message}");
+            }
+        }
+
+        Errors = Errors.OrderByDescending(e => e.Timestamp).ToList();
+    }
+
+    private ErrorInfo ParseErrorLine(string line)
+    {
+        var regex = new Regex(@"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d{3}).+\[ERR\] Correlation ID: (.+), Session ID: (.+), Exception: (.+)");
+        var match = regex.Match(line);
+
+        if (match.Success)
+        {
+            return new ErrorInfo
+            {
+                Timestamp = DateTime.Parse(match.Groups[1].Value),
+                CorrelationId = match.Groups[2].Value,
+                SessionId = match.Groups[3].Value,
+                ErrorMessage = match.Groups[4].Value.Trim()
+            };
+        }
+
+        return null;
+    }
+
+    private class ErrorInfo
+    {
+        public DateTime Timestamp { get; set; }
+        public string CorrelationId { get; set; }
+        public string SessionId { get; set; }
+        public string ErrorMessage { get; set; }
+    }
+}

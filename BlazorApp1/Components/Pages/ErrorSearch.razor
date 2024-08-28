@@ -1,0 +1,62 @@
+@page "/error/search/{SearchString}"
+@inject IWebHostEnvironment WebHostEnvironment
+@using System.IO
+
+<h1>Log Search Results</h1>
+
+<p>Search string: @SearchString</p>
+
+@if (SearchResults.Any())
+{
+    <ul>
+        @foreach (var result in SearchResults)
+        {
+            <li>@result</li>
+        }
+    </ul>
+}
+else
+{
+    <p>No results found.</p>
+}
+
+@code {
+    [Parameter]
+    public string SearchString { get; set; }
+
+    private List<string> SearchResults { get; set; } = new List<string>();
+
+    protected override void OnInitialized()
+    {
+        var logDirectory = Path.Combine(WebHostEnvironment.ContentRootPath, "logs");
+        var logFiles = Directory.GetFiles(logDirectory, "log-*.txt");
+
+        foreach (var logFile in logFiles)
+        {
+            var matchingLines = new List<string>();
+            try
+            {
+                using (var fileStream = new FileStream(logFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                using (var reader = new StreamReader(fileStream))
+                {
+                    string? line;
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        if (line.Contains(SearchString, StringComparison.OrdinalIgnoreCase))
+                        {
+                            matchingLines.Add(line);
+                        }
+                    }
+                }
+            }
+            catch (IOException ex)
+            {
+                // Log the error or handle it as appropriate
+                Console.WriteLine($"Error reading log file: {ex.Message}");
+            }
+               
+
+            SearchResults.AddRange(matchingLines);
+        }
+    }
+}
